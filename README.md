@@ -171,9 +171,9 @@ Ce projet est sous licence MIT. Voir le fichier `LICENSE` pour plus de détails.
 
 ## 👤 Auteur
 
-**Votre Nom**
-- GitHub: [@VOTRE_USERNAME](https://github.com/VOTRE_USERNAME)
-- Email: votre.email@example.com
+**Niyazi Dede**
+- GitHub: [@Niyazi-Dede](https://github.com/Niyazi-Dede)
+- Projet: SkillTracker CDA
 
 ## 🙏 Remerciements
 
