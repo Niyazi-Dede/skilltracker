@@ -1,0 +1,118 @@
+name: CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  # Job 1 : Tests et Linting
+  test:
+    name: Tests et qualité du code
+    runs-on: ubuntu-latest
+
+    strategy:
+      matrix:
+        node-version: [18.x, 20.x]
+
+    steps:
+    - name: Récupération du code
+      uses: actions/checkout@v4
+
+    - name: Configuration Node.js ${{ matrix.node-version }}
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ matrix.node-version }}
+        cache: 'npm'
+
+    - name: Installation des dépendances
+      run: npm ci
+
+    - name: Vérification du linting
+      run: npm run lint
+
+    - name: Lancement des tests
+      run: npm test
+
+    - name: Génération du rapport de couverture
+      run: npm run test:coverage
+      continue-on-error: true
+
+    - name: Upload du rapport de couverture
+      uses: actions/upload-artifact@v4
+      with:
+        name: coverage-report-${{ matrix.node-version }}
+        path: coverage/
+      if: always()
+
+  # Job 2 : Build de l'application
+  build:
+    name: Build de production
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Récupération du code
+      uses: actions/checkout@v4
+
+    - name: Configuration Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+
+    - name: Installation des dépendances
+      run: npm ci
+
+    - name: Build de l'application
+      run: npm run build
+      env:
+        NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.NEXT_PUBLIC_SUPABASE_URL }}
+        NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.NEXT_PUBLIC_SUPABASE_ANON_KEY }}
+
+    - name: Upload de l'artefact de build
+      uses: actions/upload-artifact@v4
+      with:
+        name: build-output
+        path: .next/
+        retention-days: 7
+
+  # Job 3 : Analyse de sécurité (optionnel)
+  security:
+    name: Audit de sécurité
+    runs-on: ubuntu-latest
+    needs: test
+
+    steps:
+    - name: Récupération du code
+      uses: actions/checkout@v4
+
+    - name: Configuration Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+
+    - name: Audit des dépendances
+      run: npm audit --audit-level=moderate
+      continue-on-error: true
+
+  # Job 4 : Notification de succès
+  notify:
+    name: Notification
+    runs-on: ubuntu-latest
+    needs: [test, build]
+    if: always()
+
+    steps:
+    - name: Vérification du statut
+      run: |
+        if [ "${{ needs.test.result }}" == "success" ] && [ "${{ needs.build.result }}" == "success" ]; then
+          echo "✅ Pipeline CI/CD réussie !"
+          echo "Les tests et le build sont passés avec succès."
+        else
+          echo "❌ Pipeline CI/CD échouée"
+          echo "Tests: ${{ needs.test.result }}"
+          echo "Build: ${{ needs.build.result }}"
+          exit 1
+        fi
